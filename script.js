@@ -65,3 +65,7 @@ failed.addEventListener("click",(e) => {
         showToast("Failed unexpected error","danger",5000);
     });
 
+warn.addEventListener("click",(e) => {
+        e.preventDefault();
+        showToast("This is a warning!","warning",5000);
+    });
