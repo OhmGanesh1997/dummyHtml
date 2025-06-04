@@ -32,14 +32,23 @@ const showToast = (
     duration = duration || 5000;
     box.querySelector(".toast-progress").style.animationDuration =
             `${duration / 1000}s`;
+    box.style.setProperty('--toast-duration', `${duration / 1000}s`);
 
-    let toastAlready = 
-        document.body.querySelector(".toast");
-    if (toastAlready) {
-        toastAlready.remove();
+    let toastContainer = document.getElementById("toast-overlay");
+    if (!toastContainer) {
+        // Create the container if it doesn't exist (though it should from index.html)
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toast-overlay';
+        document.body.appendChild(toastContainer);
     }
+    toastContainer.appendChild(box);
 
-    document.body.appendChild(box)};
+    box.addEventListener('animationend', (event) => {
+        if (event.animationName === 'fadeOutIndividual') {
+            box.remove();
+        }
+    });
+};
 
 let submit = 
     document.querySelector(".custom-toast.success-toast");
@@ -65,3 +74,7 @@ failed.addEventListener("click",(e) => {
         showToast("Failed unexpected error","danger",5000);
     });
 
+warn.addEventListener("click",(e) => {
+        e.preventDefault();
+        showToast("Please be cautious!","warning",5000);
+    });

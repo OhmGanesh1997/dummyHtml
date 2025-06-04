@@ -85,26 +85,34 @@ h1 {
     color: green;
 }
 
-.toast {
+/* This is our toast container */
+#toast-overlay {
     position: fixed;
     top: 25px;
     right: 25px;
-    max-width: 300px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px; /* Adds space between toasts */
+    z-index: 1023;
+    max-width: 300px; /* Ensure container doesn't get too wide */
+}
+
+.toast {
+    /* position, top, right, z-index removed, handled by #toast-overlay */
+    max-width: 300px; /* Kept for individual toast width consistency if needed, though container sets max too */
     background: #fff;
     padding: 0.5rem;
     border-radius: 4px;
     box-shadow: -1px 1px 10px
         rgba(0, 0, 0, 0.3);
-    z-index: 1023;
-    animation: slideInRight 0.3s
-            ease-in-out forwards,
-        fadeOut 0.5s ease-in-out
-            forwards 3s;
-    transform: translateX(110%);
+    /* Removed old animation, transform is now initial state for new animation */
+    animation: slideInRightIndividual 0.3s ease-in-out forwards,
+               fadeOutIndividual 0.5s ease-in-out forwards var(--toast-duration);
+    transform: translateX(110%); /* Initial state for slideInRightIndividual */
 }
 
 .toast.closing {
-    animation: slideOutRight 0.5s
+    animation: slideOutRight 0.5s /* This might need adjustment or removal if only fadeOutIndividual is used for removal */
         ease-in-out forwards;
 }
 
@@ -116,7 +124,7 @@ h1 {
     height: 4px;
     width: 100%;
     background: #b7b7b7;
-    animation: toastProgress 3s
+    animation: toastProgress var(--toast-duration) /* Match progress to toast visibility */
         ease-in-out forwards;
 }
 
@@ -184,6 +192,20 @@ h1 {
     }
 }
 
+@keyframes slideInRightIndividual {
+    0% {
+        transform: translateX(110%);
+    }
+
+    75% {
+        transform: translateX(-10%);
+    }
+
+    100% {
+        transform: translateX(0%);
+    }
+}
+
 @keyframes slideOutRight {
     0% {
         transform: translateX(0%);
@@ -199,6 +221,16 @@ h1 {
 }
 
 @keyframes fadeOut {
+    0% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0;
+    }
+}
+
+@keyframes fadeOutIndividual {
     0% {
         opacity: 1;
     }
