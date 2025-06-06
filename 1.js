@@ -520,7 +520,7 @@ async function verifyUser(eventId, attendeeMail, type, userId, phone, attendeeSt
     name: event.name,
     startDate: event.startDate,
     startTime: event.startTime,
-    hosts: getHosts(event),
+    hosts: [],
     attendeeId: getAttendeeId(event, attendeeMail),
     eventinvitationsID: event.Invitations.items[0].id,
     invitationsTotal: event.Invitations.items[0].invitationsTotal,
@@ -1296,100 +1296,210 @@ export const handler = async (event) => {
           host: url.hostname,
         },
       });
-      var { headers, body, method } = await addHttpRequest(user)
-      var userbyEmail = await initfetch(appsyncUrl, headers, body, method);
+      var { headers, body, method } = await addHttpRequest(user);
+      var userbyEmail;
+      try {
+        userbyEmail = await initfetch(appsyncUrl, headers, body, method);
+        if (userbyEmail.errors) {
+          console.error("GraphQL error fetching user by email:", userbyEmail.errors);
+          return {
+            statusCode: 500,
+            body: JSON.stringify({ message: "Error fetching user data by email.", details: userbyEmail.errors }),
+            headers: {
+              "Access-Control-Allow-Origin": "*",
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Headers": "Content-Type",
+              "Access-Control-Allow-Methods": "OPTIONS,POST,GET"
+            },
+          };
+        }
+      } catch (err) {
+        console.error("Network or unexpected error fetching user by email:", err);
+        return {
+          statusCode: 500,
+          body: JSON.stringify({ message: "Failed to query user information by email." }),
+          headers: {
+            "Access-Control-Allow-Origin": "*",
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Headers": "Content-Type",
+            "Access-Control-Allow-Methods": "OPTIONS,POST,GET"
+          },
+        };
+      }
       console.log(userbyEmail, "userbyEmail");
       // Corrected: Removed unnecessary await from synchronous sort operation
       userbyEmail.data.listUsers.items = userbyEmail.data.listUsers?.items.length > 0 ? userbyEmail.data.listUsers?.items.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)) : [];
-      var userId = userbyEmail.data.listUsers?.items.length > 0 ? userbyEmail.data.listUsers?.items[0].id : "";
-      if (userId == "") {
-        var userData = {
-          id: uuidv4(),
+      const existingUser = userbyEmail.data.listUsers?.items.length > 0 ? userbyEmail.data.listUsers.items[0] : null;
+
+      if (!existingUser) {
+        const newUserId = uuidv4();
+        const userData = {
+          id: newUserId,
           firstName: firstName,
           lastName: lastName,
-          fullName: firstName + " " + lastName || null,
+          fullName: `${firstName} ${lastName}`.trim() || null,
           email: email.replace(/\s/g, "") || null,
           phone: null,
           profilePhoto: null,
           address: address || null,
           is_register: 1
-        }
-        var createUser = {
+        };
+        const createUserMutation = {
           query: `
-    mutation createUser(
-      $input: CreateUserInput!
-    ) {
-      createUser(input: $input) {
-        id
-        firstName
-        lastName
-      }
-    }
-  `, operationName: 'createUser',
+            mutation createUser($input: CreateUserInput!) {
+              createUser(input: $input) {
+                id
+                firstName
+                lastName
+              }
+            }
+          `,
+          operationName: 'createUser',
           variables: {
             input: userData,
           }
-        }
-        var userRequest = new HttpRequest({
+        };
+        const userRequest = new HttpRequest({
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            host: url.hostname
-          },
+          headers: { 'Content-Type': 'application/json', host: url.hostname },
           hostname: url.hostname,
-          body: JSON.stringify(createUser),
+          body: JSON.stringify(createUserMutation),
           path: url.pathname
         });
-        var { headers, body, method } = await addHttpRequest(userRequest)
-        var user = await initfetch(appsyncUrl, headers, body, method);
-        console.log(user, "createUser");
-        payload = {
-          email: email,
-          phone: "",
-          given_name: firstName || null,
-          family_name: lastName || null,
-        }
-        payload["custom:userId"] = userData.id;
-      } else {
-        console.log(userbyEmail?.data?.listUsers?.items[0], "check user details")
-        if (userbyEmail?.data?.listUsers?.items[0]?.firstName == null || userbyEmail?.data?.listUsers?.items[0]?.lastName == null || userbyEmail?.data?.listUsers?.items[0]?.address == null) {
-          var users = {
-            id: userId,
-            firstName: userbyEmail?.data?.listUsers?.items[0]?.firstName ?? firstName,
-            lastName: userbyEmail?.data?.listUsers?.items[0]?.lastName ?? lastName,
-            fullName: userbyEmail?.data?.listUsers?.items[0].fullName ?? firstName + " " + lastName,
-            address: userbyEmail?.data?.listUsers?.items[0]?.address ?? address,
-            is_register: 1
-          }
-          console.log(users, "------------->user")
-          var createUser = {
-            query: updateUser, operationName: 'updateUser',
-            variables: {
-              input: users
-            }
-          }
-          var userRequest = new HttpRequest({
-            method: 'POST',
+        const { headers, body, method } = await addHttpRequest(userRequest);
+        var createUserResult;
+        try {
+          createUserResult =  initfetch(appsyncUrl, headers, body, method);
+          // if (createUserResult.errors) {
+          //   console.error("GraphQL error creating user:", createUserResult.errors);
+          //   return {
+          //     statusCode: 500,
+          //     body: JSON.stringify({ message: "Error creating user.", details: createUserResult.errors }),
+          //     headers: {
+          //       "Access-Control-Allow-Origin": "*",
+          //       "Content-Type": "application/json",
+          //       "Access-Control-Allow-Headers": "Content-Type",
+          //       "Access-Control-Allow-Methods": "OPTIONS,POST,GET"
+          //     },
+          //   };
+          // }
+        } catch (err) {
+          console.error("Network or unexpected error creating user:", err);
+          return {
+            statusCode: 500,
+            body: JSON.stringify({ message: "Failed to create user." }),
             headers: {
-              'Content-Type': 'application/json',
-              host: url.hostname
+              "Access-Control-Allow-Origin": "*",
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Headers": "Content-Type",
+              "Access-Control-Allow-Methods": "OPTIONS,POST,GET"
             },
-            hostname: url.hostname,
-            body: JSON.stringify(createUser),
-            path: url.pathname
-          });
-          var { headers, body, method } = await addHttpRequest(userRequest)
-          const user = await initfetch(appsyncUrl, headers, body, method);
+          };
         }
-
-
+        console.log(createUserResult, "createUser");
         payload = {
           email: email,
           phone: "",
           given_name: firstName || null,
           family_name: lastName || null,
+        };
+        payload["custom:userId"] = newUserId;
+      } else {
+        payload = {
+          email: email,
+          phone: existingUser.phone || "", // Keep existing phone if available
+          given_name: existingUser.firstName || firstName || null,
+          family_name: existingUser.lastName || lastName || null,
+        };
+        payload["custom:userId"] = existingUser.id;
+
+        const needsUpdate = 
+          (firstName && existingUser.firstName !== firstName) ||
+          (lastName && existingUser.lastName !== lastName) ||
+          (address && existingUser.address !== address) ||
+          existingUser.firstName === null || // Also update if initially null
+          existingUser.lastName === null ||
+          existingUser.address === null;
+
+
+        if (needsUpdate) {
+          const updatedUserData = {
+            id: existingUser.id,
+            firstName: firstName || existingUser.firstName, // Use new value or fallback to existing
+            lastName: lastName || existingUser.lastName,
+            // Ensure fullName is updated if firstName or lastName changes
+            fullName: `${firstName || existingUser.firstName} ${lastName || existingUser.lastName}`.trim() || existingUser.fullName,
+            address: address || existingUser.address,
+            is_register: 1 // Assuming this should always be set on update if user interacts
+          };
+          // Only include fields that are being changed or were null
+          const inputToUpdate = { id: existingUser.id, is_register: 1 };
+          if (firstName && existingUser.firstName !== firstName || (existingUser.firstName === null && firstName)) {
+            inputToUpdate.firstName = firstName;
+          }
+          if (lastName && existingUser.lastName !== lastName || (existingUser.lastName === null && lastName)) {
+            inputToUpdate.lastName = lastName;
+          }
+          if ((firstName && existingUser.firstName !== firstName) || (lastName && existingUser.lastName !== lastName) || (existingUser.firstName === null && firstName) || (existingUser.lastName === null && lastName) || (existingUser.fullName === null && firstName && lastName) ) {
+             inputToUpdate.fullName = `${inputToUpdate.firstName || existingUser.firstName} ${inputToUpdate.lastName || existingUser.lastName}`.trim();
+          }
+          if (address && existingUser.address !== address || (existingUser.address === null && address)) {
+            inputToUpdate.address = address;
+          }
+
+
+          // Only call updateUser if there's something to update
+          if (Object.keys(inputToUpdate).length > 2) { // id and is_register are always there
+            const updateUserMutation = {
+              query: updateUser, // Assuming 'updateUser' is the GraphQL mutation string defined elsewhere
+              operationName: 'updateUser',
+              variables: {
+                input: inputToUpdate
+              }
+            };
+            const userRequest = new HttpRequest({
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', host: url.hostname },
+              hostname: url.hostname,
+              body: JSON.stringify(updateUserMutation),
+              path: url.pathname
+            });
+            const { headers, body, method } = await addHttpRequest(userRequest);
+            var updateUserResult;
+            try {
+              updateUserResult =  initfetch(appsyncUrl, headers, body, method);
+              // if (updateUserResult.errors) {
+              //   console.error("GraphQL error updating user:", updateUserResult.errors);
+              //   return {
+              //     statusCode: 500,
+              //     body: JSON.stringify({ message: "Error updating user.", details: updateUserResult.errors }),
+              //     headers: {
+              //       "Access-Control-Allow-Origin": "*",
+              //       "Content-Type": "application/json",
+              //       "Access-Control-Allow-Headers": "Content-Type",
+              //       "Access-Control-Allow-Methods": "OPTIONS,POST,GET"
+              //     },
+              //   };
+              // }
+            } catch (err) {
+              console.error("Network or unexpected error updating user:", err);
+              return {
+                statusCode: 500,
+                body: JSON.stringify({ message: "Failed to update user." }),
+                headers: {
+                  "Access-Control-Allow-Origin": "*",
+                  "Content-Type": "application/json",
+                  "Access-Control-Allow-Headers": "Content-Type",
+                  "Access-Control-Allow-Methods": "OPTIONS,POST,GET"
+                },
+              };
+            }
+            console.log(updateUserResult, "updateUser");
+            // Update payload with potentially new names
+            if (inputToUpdate.firstName) payload.given_name = inputToUpdate.firstName;
+            if (inputToUpdate.lastName) payload.family_name = inputToUpdate.lastName;
+          }
         }
-        payload["custom:userId"] = userId;
       }
     } else {
       return {
@@ -1726,5 +1836,4 @@ export const handler = async (event) => {
       body: JSON.stringify(err),
     }
   }
-
 };
