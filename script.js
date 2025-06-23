@@ -1,67 +1,104 @@
-// script.js
+document.addEventListener('DOMContentLoaded', () => {
+    const statusMessage = document.getElementById('status-message');
+    const connectButton = document.getElementById('connect-button');
+    const disconnectButton = document.getElementById('disconnect-button');
+    const fetchIpButton = document.getElementById('fetch-ip-button');
+    const proxyResponseArea = document.getElementById('proxy-response-area');
 
-let icon = {
-    success:
-    '<span class="material-symbols-outlined">task_alt</span>',
-    danger:
-    '<span class="material-symbols-outlined">error</span>',
-    warning:
-    '<span class="material-symbols-outlined">warning</span>',
-    info:
-    '<span class="material-symbols-outlined">info</span>',
-};
+    // Base URL for your proxy server (running on port 3001)
+    const PROXY_SERVER_URL = 'http://localhost:3001';
 
-const showToast = (
-    message = "Sample Message",
-    toastType = "info",
-    duration = 5000) => {
-    if (
-        !Object.keys(icon).includes(toastType))
-        toastType = "info";
-
-    let box = document.createElement("div");
-    box.classList.add(
-        "toast", `toast-${toastType}`);
-    box.innerHTML = ` <div class="toast-content-wrapper">
-                      <div class="toast-icon">
-                      ${icon[toastType]}
-                      </div>
-                      <div class="toast-message">${message}</div>
-                      <div class="toast-progress"></div>
-                      </div>`;
-    duration = duration || 5000;
-    box.querySelector(".toast-progress").style.animationDuration =
-            `${duration / 1000}s`;
-
-    let toastAlready = 
-        document.body.querySelector(".toast");
-    if (toastAlready) {
-        toastAlready.remove();
+    function updateUI(isConnected) {
+        if (isConnected) {
+            statusMessage.textContent = 'Connected';
+            statusMessage.style.color = 'green';
+            connectButton.disabled = true;
+            disconnectButton.disabled = false;
+            fetchIpButton.disabled = false;
+        } else {
+            statusMessage.textContent = 'Disconnected';
+            statusMessage.style.color = 'red';
+            connectButton.disabled = false;
+            disconnectButton.disabled = true;
+            fetchIpButton.disabled = true;
+        }
     }
 
-    document.body.appendChild(box)};
-
-let submit = 
-    document.querySelector(".custom-toast.success-toast");
-let information = 
-    document.querySelector(".custom-toast.info-toast");
-let failed = 
-    document.querySelector(".custom-toast.danger-toast");
-let warn = 
-    document.querySelector(".custom-toast.warning-toast");
-
-submit.addEventListener("click",(e) => {
-        e.preventDefault();
-        showToast("Article Submitted Successfully","success",5000);
+    connectButton.addEventListener('click', async () => {
+        proxyResponseArea.textContent = 'Connecting...';
+        try {
+            const response = await fetch(`${PROXY_SERVER_URL}/connect`, { method: 'POST' });
+            if (response.ok) {
+                const message = await response.text();
+                updateUI(true);
+                proxyResponseArea.textContent = message;
+            } else {
+                const errorText = await response.text();
+                proxyResponseArea.textContent = `Connection failed: ${response.status} ${errorText}`;
+                updateUI(false);
+            }
+        } catch (error) {
+            console.error('Error connecting:', error);
+            proxyResponseArea.textContent = `Error connecting: ${error.message}`;
+            updateUI(false);
+        }
     });
 
-information.addEventListener("click",(e) => {
-        e.preventDefault();
-        showToast("Do POTD and Earn Coins","info",5000);
+    disconnectButton.addEventListener('click', async () => {
+        proxyResponseArea.textContent = 'Disconnecting...';
+        try {
+            const response = await fetch(`${PROXY_SERVER_URL}/disconnect`, { method: 'POST' });
+            if (response.ok) {
+                const message = await response.text();
+                updateUI(false);
+                proxyResponseArea.textContent = message;
+            } else {
+                const errorText = await response.text();
+                proxyResponseArea.textContent = `Disconnection failed: ${response.status} ${errorText}`;
+            }
+        } catch (error) {
+            console.error('Error disconnecting:', error);
+            proxyResponseArea.textContent = `Error disconnecting: ${error.message}`;
+        }
     });
 
-failed.addEventListener("click",(e) => {
-        e.preventDefault();
-        showToast("Failed unexpected error","danger",5000);
+    fetchIpButton.addEventListener('click', async () => {
+        proxyResponseArea.textContent = 'Fetching IP via proxy...';
+        try {
+            // Example: fetching your IP address through httpbin.org via our proxy
+            const response = await fetch(`${PROXY_SERVER_URL}/proxy/ip`);
+            if (response.ok) {
+                const data = await response.json(); // httpbin.org/ip returns JSON
+                proxyResponseArea.innerHTML = `<p>Response from proxy (your IP as seen by ${PROXY_SERVER_URL}/proxy):</p><pre>${JSON.stringify(data, null, 2)}</pre>`;
+            } else {
+                const errorText = await response.text();
+                proxyResponseArea.textContent = `Proxy request failed: ${response.status} ${errorText}`;
+            }
+        } catch (error) {
+            console.error('Error fetching via proxy:', error);
+            proxyResponseArea.textContent = `Error fetching via proxy: ${error.message}`;
+        }
     });
 
+    // Initial UI state
+    updateUI(false);
+
+    // Check initial status from server (optional, good for page loads)
+    async function checkInitialStatus() {
+        try {
+            const response = await fetch(`${PROXY_SERVER_URL}/status`);
+            if (response.ok) {
+                const data = await response.json();
+                updateUI(data.isConnected);
+            } else {
+                console.warn('Could not fetch initial status from server.');
+                updateUI(false); // Assume disconnected if status check fails
+            }
+        } catch (error) {
+            console.warn('Error checking initial status:', error.message);
+            updateUI(false); // Assume disconnected if server is not reachable
+        }
+    }
+
+    checkInitialStatus();
+});

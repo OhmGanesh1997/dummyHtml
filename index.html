@@ -1,54 +1,30 @@
-<!-- index.html -->
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" 
-          content="width=device-width, 
-                   initial-scale=1.0">
-    <title>Custom Toast Notification</title>
-    <link rel="stylesheet" 
-          href="style.css">
-    <link rel="stylesheet"
-        href=
-"https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Web VPN Client</title>
+    <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
     <div class="container">
-        <h3>
-             Toast Notification in 
-             HTML CSS JavaScript
-          </h3>
-        <div class="toast-buttons">
-            <div class="toast-row">
-                <button type="button" 
-                        class="custom-toast 
-                               success-toast">
-                    Submit
-                  </button>
-                <button type="button" 
-                        class="custom-toast 
-                               danger-toast">
-                    Failed
-                  </button>
-                <button type="button" 
-                        class="custom-toast 
-                               info-toast">
-                    Information
-                  </button>
-                <button type="button" 
-                        class="custom-toast 
-                               warning-toast">
-                    Warning
-                  </button>
+        <h1>Web VPN Client (Conceptual)</h1>
+        <div class="status-container">
+            <p>Status: <span id="status-message">Disconnected</span></p>
+        </div>
+        <div class="button-container">
+            <button id="connect-button">Connect</button>
+            <button id="disconnect-button" disabled>Disconnect</button>
+        </div>
+        <div class="proxy-test-container">
+            <h2>Test Proxy</h2>
+            <p>Once connected, you can try to fetch data through the proxy.</p>
+            <button id="fetch-ip-button" disabled>Fetch My IP (via Proxy)</button>
+            <div id="proxy-response-area">
+                <p>Response from proxy will appear here.</p>
             </div>
         </div>
     </div>
-    <div class="toast-overlay" 
-         id="toast-overlay"></div>
-    <script src="./script.js"></script>
+    <script src="script.js"></script>
 </body>
-
 </html>
