@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const disconnectButton = document.getElementById('disconnect-button');
     const fetchIpButton = document.getElementById('fetch-ip-button');
     const proxyResponseArea = document.getElementById('proxy-response-area');
+    const connectionCountry = document.getElementById('connection-country'); // Get the new span
 
     // Base URL for your proxy server (running on port 3001)
     const PROXY_SERVER_URL = 'http://localhost:3001';
@@ -21,6 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
             connectButton.disabled = false;
             disconnectButton.disabled = true;
             fetchIpButton.disabled = true;
+            connectionCountry.textContent = ''; // Clear country on disconnect state
         }
     }
 
@@ -32,6 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const message = await response.text();
                 updateUI(true);
                 proxyResponseArea.textContent = message;
+                fetchCountryInfo(); // Fetch country info on successful connect
             } else {
                 const errorText = await response.text();
                 proxyResponseArea.textContent = `Connection failed: ${response.status} ${errorText}`;
@@ -52,6 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const message = await response.text();
                 updateUI(false);
                 proxyResponseArea.textContent = message;
+                connectionCountry.textContent = ''; // Clear country info
             } else {
                 const errorText = await response.text();
                 proxyResponseArea.textContent = `Disconnection failed: ${response.status} ${errorText}`;
@@ -81,7 +85,31 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Initial UI state
-    updateUI(false);
+    updateUI(false); // This will also clear country info now
+
+    async function fetchCountryInfo() {
+        connectionCountry.textContent = 'Loading...';
+        try {
+            const response = await fetch(`${PROXY_SERVER_URL}/get-connection-country`);
+            if (response.ok) {
+                const data = await response.json();
+                if (data.country && data.city) {
+                    connectionCountry.textContent = `${data.city}, ${data.country} (IP: ${data.queryIp})`;
+                } else if (data.country) {
+                    connectionCountry.textContent = `${data.country} (IP: ${data.queryIp})`;
+                } else {
+                    connectionCountry.textContent = 'Location not found.';
+                }
+            } else {
+                const errorText = await response.text();
+                console.error('Error fetching country:', errorText);
+                connectionCountry.textContent = 'Error fetching location.';
+            }
+        } catch (error) {
+            console.error('Error fetching country:', error);
+            connectionCountry.textContent = 'Error fetching location.';
+        }
+    }
 
     // Check initial status from server (optional, good for page loads)
     async function checkInitialStatus() {
@@ -90,6 +118,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (response.ok) {
                 const data = await response.json();
                 updateUI(data.isConnected);
+                if (data.isConnected) {
+                    fetchCountryInfo(); // If already connected (e.g. previous session), fetch country
+                }
             } else {
                 console.warn('Could not fetch initial status from server.');
                 updateUI(false); // Assume disconnected if status check fails
