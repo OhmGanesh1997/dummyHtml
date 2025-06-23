@@ -17,7 +17,22 @@ body {
 }
 
 .status-container {
+    margin-bottom: 10px; /* Adjusted margin */
+}
+
+.country-selector-container {
     margin-bottom: 20px;
+}
+
+.country-selector-container label {
+    margin-right: 10px;
+}
+
+.country-selector-container select {
+    padding: 8px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    min-width: 200px; /* Give it some width */
 }
 
 #status-message {

@@ -4,12 +4,37 @@ document.addEventListener('DOMContentLoaded', () => {
     const disconnectButton = document.getElementById('disconnect-button');
     const fetchIpButton = document.getElementById('fetch-ip-button');
     const proxyResponseArea = document.getElementById('proxy-response-area');
-    const connectionCountry = document.getElementById('connection-country'); // Get the new span
+    const connectionCountrySpan = document.getElementById('connection-country'); // Renamed for clarity
+    const countrySelect = document.getElementById('country-select'); // Get the select element
 
     // Base URL for your proxy server (running on port 3001)
     const PROXY_SERVER_URL = 'http://localhost:3001';
 
-    function updateUI(isConnected) {
+    // Hardcode EXIT_NODES client-side to populate dropdown and match server (or fetch from server in a real app)
+    const EXIT_NODES_CLIENT = {
+        "DIRECT": { name: "Direct Connection" },
+        "US": { name: "United States (Simulated)" },
+        "DE": { name: "Germany (Simulated)" },
+        "JP": { name: "Japan (Simulated)" }
+    };
+
+    function populateCountryDropdown() {
+        // Clear existing options except the first one if it's "Direct" or a placeholder
+        // For simplicity, assuming the HTML has the initial options as defined.
+        // If we were building it dynamically:
+        // countrySelect.innerHTML = '';
+        // Object.keys(EXIT_NODES_CLIENT).forEach(code => {
+        //     const option = document.createElement('option');
+        //     option.value = code;
+        //     option.textContent = EXIT_NODES_CLIENT[code].name;
+        //     countrySelect.appendChild(option);
+        // });
+    }
+
+
+    function updateUI(isConnected, selectedCountryCode = "DIRECT") {
+        countrySelect.disabled = isConnected; // Disable dropdown when connected
+
         if (isConnected) {
             statusMessage.textContent = 'Connected';
             statusMessage.style.color = 'green';
@@ -22,19 +47,26 @@ document.addEventListener('DOMContentLoaded', () => {
             connectButton.disabled = false;
             disconnectButton.disabled = true;
             fetchIpButton.disabled = true;
-            connectionCountry.textContent = ''; // Clear country on disconnect state
+            connectionCountrySpan.textContent = ''; // Use correct variable name
         }
     }
 
     connectButton.addEventListener('click', async () => {
         proxyResponseArea.textContent = 'Connecting...';
+        const selectedCountryCode = countrySelect.value;
         try {
-            const response = await fetch(`${PROXY_SERVER_URL}/connect`, { method: 'POST' });
+            const response = await fetch(`${PROXY_SERVER_URL}/connect`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ countryCode: selectedCountryCode }),
+            });
             if (response.ok) {
                 const message = await response.text();
-                updateUI(true);
+                updateUI(true, selectedCountryCode); // Pass selected country code
                 proxyResponseArea.textContent = message;
-                fetchCountryInfo(); // Fetch country info on successful connect
+                getConnectionDetails(); // Fetch and display connection details
             } else {
                 const errorText = await response.text();
                 proxyResponseArea.textContent = `Connection failed: ${response.status} ${errorText}`;
@@ -53,9 +85,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch(`${PROXY_SERVER_URL}/disconnect`, { method: 'POST' });
             if (response.ok) {
                 const message = await response.text();
-                updateUI(false);
+                updateUI(false, "DIRECT"); // Reset to DIRECT on disconnect
                 proxyResponseArea.textContent = message;
-                connectionCountry.textContent = ''; // Clear country info
+                connectionCountrySpan.textContent = ''; // Use correct variable name
             } else {
                 const errorText = await response.text();
                 proxyResponseArea.textContent = `Disconnection failed: ${response.status} ${errorText}`;
@@ -84,52 +116,65 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Initial UI state
-    updateUI(false); // This will also clear country info now
+    // Initial UI state is set by checkInitialStatus
 
-    async function fetchCountryInfo() {
-        connectionCountry.textContent = 'Loading...';
+    // Fetches and displays the current connection details (selected country/proxy)
+    async function getConnectionDetails() {
+        connectionCountrySpan.textContent = 'Loading...';
         try {
             const response = await fetch(`${PROXY_SERVER_URL}/get-connection-country`);
             if (response.ok) {
                 const data = await response.json();
-                if (data.country && data.city) {
-                    connectionCountry.textContent = `${data.city}, ${data.country} (IP: ${data.queryIp})`;
-                } else if (data.country) {
-                    connectionCountry.textContent = `${data.country} (IP: ${data.queryIp})`;
-                } else {
-                    connectionCountry.textContent = 'Location not found.';
-                }
+                // Server sends 'country' as selectedCountryName and 'details'
+                connectionCountrySpan.textContent = data.details || data.country || 'N/A';
             } else {
                 const errorText = await response.text();
-                console.error('Error fetching country:', errorText);
-                connectionCountry.textContent = 'Error fetching location.';
+                console.error('Error fetching connection details:', errorText);
+                connectionCountrySpan.textContent = 'Error fetching details.';
             }
         } catch (error) {
-            console.error('Error fetching country:', error);
-            connectionCountry.textContent = 'Error fetching location.';
+            console.error('Error fetching connection details:', error);
+            connectionCountrySpan.textContent = 'Error fetching details.';
         }
     }
 
-    // Check initial status from server (optional, good for page loads)
+    // Check initial status from server
     async function checkInitialStatus() {
         try {
             const response = await fetch(`${PROXY_SERVER_URL}/status`);
             if (response.ok) {
                 const data = await response.json();
-                updateUI(data.isConnected);
+
+                let initialCountryCode = "DIRECT"; // Default
+                if (data.isConnected && data.selectedCountry) {
+                    // Try to find the code corresponding to the name sent by server
+                    const foundCode = Object.keys(EXIT_NODES_CLIENT).find(
+                        code => EXIT_NODES_CLIENT[code].name === data.selectedCountry
+                    );
+                    if (foundCode) {
+                        initialCountryCode = foundCode;
+                    }
+                }
+                countrySelect.value = initialCountryCode;
+                updateUI(data.isConnected, initialCountryCode);
+
                 if (data.isConnected) {
-                    fetchCountryInfo(); // If already connected (e.g. previous session), fetch country
+                    getConnectionDetails();
+                } else {
+                    connectionCountrySpan.textContent = '';
                 }
             } else {
                 console.warn('Could not fetch initial status from server.');
-                updateUI(false); // Assume disconnected if status check fails
+                updateUI(false, "DIRECT");
+                connectionCountrySpan.textContent = '';
             }
         } catch (error) {
             console.warn('Error checking initial status:', error.message);
-            updateUI(false); // Assume disconnected if server is not reachable
+            updateUI(false, "DIRECT");
+            connectionCountrySpan.textContent = '';
         }
     }
 
+    populateCountryDropdown(); // Call to ensure dropdown is set up (though it's static now)
     checkInitialStatus();
 });

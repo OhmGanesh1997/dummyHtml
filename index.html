@@ -13,6 +13,16 @@
             <p>Status: <span id="status-message">Disconnected</span></p>
             <p>Location: <span id="connection-country"></span></p>
         </div>
+        <div class="country-selector-container">
+            <label for="country-select">Select Server Location:</label>
+            <select id="country-select">
+                <option value="DIRECT">Direct Connection</option>
+                <!-- Options will be populated by script.js or hardcoded if simple -->
+                <option value="US">United States (Simulated)</option>
+                <option value="DE">Germany (Simulated)</option>
+                <option value="JP">Japan (Simulated)</option>
+            </select>
+        </div>
         <div class="button-container">
             <button id="connect-button">Connect</button>
             <button id="disconnect-button" disabled>Disconnect</button>
