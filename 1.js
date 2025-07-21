@@ -41,33 +41,20 @@ const verifier = CognitoJwtVerifier.create({
   clientId: "76fhts9ggtn8lut3fadud392sb",
 });
 async function getUser(token) {
-  return new Promise(async function (resolve, reject) {
-    try {
-      const payload = await verifier.verify(
-        token
-      );
-      console.log("Token is valid. Payload:", payload);
-      resolve(payload)
-    } catch (err) {
-      console.log("Token not valid!", err);
-      resolve(err)
-    }
-  })
+  try {
+    const payload = await verifier.verify(token);
+    console.log("Token is valid. Payload:", payload);
+    return payload;
+  } catch (err) {
+    console.log("Token not valid!", err);
+    return err;
+  }
 }
 
-async function addHttpRequest(httpRequest) {
-  return new Promise(async function (resolve, reject) {
-    resolve(await signer.sign(httpRequest));
-  })
-}
-async function initfetch(appsyncUrl, headers, body, method) {
-  return new Promise(async function (resolve, reject) {
-    resolve(await fetch(appsyncUrl, {
-      headers,
-      body,
-      method,
-    }).then((res) => res.json()));
-  })
+async function signedFetch(request) {
+  const signedRequest = await signer.sign(request);
+  const response = await fetch(appsyncUrl, signedRequest);
+  return response.json();
 }
 
 
@@ -215,8 +202,7 @@ async function verifyUser(...param) {
     body: JSON.stringify(getEventbyId),
     path: url.pathname
   });
-  var { headers, body, method } = await addHttpRequest(eventdata)
-  const ownerDetails = await initfetch(appsyncUrl, headers, body, method);
+  const ownerDetails = await signedFetch(eventdata);
   var email = ownerDetails.data.getEvent || null;
   console.log(email, "email");
   var ownersAccess = [];
@@ -314,8 +300,7 @@ export const handler = async (event) => {
           host: url.hostname,
         },
       });
-      var { headers, body, method } = await addHttpRequest(user)
-      var userbyEmail = await initfetch(appsyncUrl, headers, body, method);
+      var userbyEmail = await signedFetch(user);
       console.log(userbyEmail, "userbyEmail");
       userbyEmail.data.listUsers.items = userbyEmail.data.listUsers?.items.length > 0 ? await userbyEmail.data.listUsers?.items.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)) : [];
       var userId = userbyEmail.data.listUsers?.items.length > 0 ? userbyEmail.data.listUsers?.items[0].id : "";
@@ -357,68 +342,43 @@ export const handler = async (event) => {
         body: JSON.stringify(updateEvent),
         path: url.pathname
       });
-      var { headers, body, method } = await addHttpRequest(updateEventData)
-      const eventsData = await initfetch(appsyncUrl, headers, body, method);
+      const eventsData = await signedFetch(updateEventData);
       console.log(eventsData, "eventsData");
 
-      var notificationsss = [];
-      await Promise.all((notificationUsers || []).map(async (g) => {
-        var getNotificationType = {
-          query: listNotificationTypes,
-          variables: {
-            filter: { type: { eq: "UPDATESCRIBBLEPAD" } },
-            limit: 100000
-          }
+      const getNotificationType = {
+        query: listNotificationTypes,
+        variables: {
+          filter: { type: { eq: "UPDATESCRIBBLEPAD" } },
+          limit: 1
         }
-        var getNotificationTypeReq = new HttpRequest({
-          hostname: url.hostname,
-          path: url.pathname,
-          body: JSON.stringify(getNotificationType),
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            host: url.hostname,
-          },
-        });
-        var { headers, body, method } = await addHttpRequest(getNotificationTypeReq)
-        var getNotificationTypes = await initfetch(appsyncUrl, headers, body, method);
-        var notificationTypeId = getNotificationTypes.data.listNotificationTypes?.items.length > 0 ? getNotificationTypes.data.listNotificationTypes?.items[0] : "";
-        console.log(notificationTypeId, "notificationTypeId");
-        if (notificationTypeId != "") {
-          var message = notificationTypeId.SmsText.toString();
-          var pushmessage = notificationTypeId.PushText.toString();
+      };
+      const getNotificationTypeReq = new HttpRequest({
+        hostname: url.hostname,
+        path: url.pathname,
+        body: JSON.stringify(getNotificationType),
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          host: url.hostname,
+        },
+      });
+      const getNotificationTypes = await signedFetch(getNotificationTypeReq);
+      const notificationTypeId = getNotificationTypes.data.listNotificationTypes?.items[0];
 
-          message = message.replace("$$user_name$$", payload.given_name + " " + payload.family_name);
-          message = message.replace("$$event_name$$", name);
-          pushmessage = pushmessage.replace("$$user_name$$", payload.given_name + " " + payload.family_name);
-          pushmessage = pushmessage.replace("$$event_name$$", name);
-          notificationsss.push({
-            id: uuidv4(),
-            notificationsEventId: eventId,
-            notificationsUserId: g.id,
-            notificationsNotificationTypeId: notificationTypeId.id,
-            NotificationMessage: pushmessage,
-            IsEmailDelivered: false,
-            EmailNumberofAttempts: notificationTypeId.IsEmailRequired == true ? 0 : -1,
-            EmailStatusMessage: "",
-            IsPushDelivered: false,
-            PushNumberofAttempts: notificationTypeId.IsPushRequired == true ? 0 : -1,
-            PushStatusMessage: "",
-            IsSMSDelivered: false,
-            SmsNumberofAttempts: notificationTypeId.IsSmsRequired == true ? 0 : -1,
-            SMSStatusMessage: "",
-            SMSMessage: message,
-            EventName: name,
-            EventStartDate: startDate,
-            EventStartTime: startTime,
-            createdDate: new Date().toISOString().slice(0, 10)
-          })
+      if (notificationTypeId) {
+        const notifications = await Promise.all(notificationUsers.map(async (g) => {
+          const message = notificationTypeId.SmsText.toString()
+            .replace("$$user_name$$", `${payload.given_name} ${payload.family_name}`)
+            .replace("$$event_name$$", name);
+          const pushmessage = notificationTypeId.PushText.toString()
+            .replace("$$user_name$$", `${payload.given_name} ${payload.family_name}`)
+            .replace("$$event_name$$", name);
 
           const getNotifications = {
             query: listNotificationsCounts,
             variables: {
               filter: { userID: { eq: g.id } },
-              limit: 100000
+              limit: 1
             }
           };
           const getNotificationsRequest = new HttpRequest({
@@ -431,67 +391,74 @@ export const handler = async (event) => {
               host: url.hostname,
             },
           });
-          var { headers, body, method } = await addHttpRequest(getNotificationsRequest)
-          var getNotificationsRequestUser = await initfetch(appsyncUrl, headers, body, method);
-          var data2 = getNotificationsRequestUser.data.listNotificationsCounts?.items.length > 0 ? getNotificationsRequestUser.data.listNotificationsCounts?.items[0] : "";
-          if (data2 != "") {
-            let message = {
-              id: data2.id,
-              unreadMessageNumber: data2.unreadMessageNumber + 1
+          const getNotificationsRequestUser = await signedFetch(getNotificationsRequest);
+          const existingNotification = getNotificationsRequestUser.data.listNotificationsCounts?.items[0];
+
+          if (existingNotification) {
+            const message = {
+              id: existingNotification.id,
+              unreadMessageNumber: existingNotification.unreadMessageNumber + 1
             };
-            console.log(message, "------------->message");
             const updateNotiNo = {
-              query: updateNotificationsCount, operationName: 'updateNotificationsCount',
-              variables: {
-                input: message,
-              }
+              query: updateNotificationsCount,
+              operationName: 'updateNotificationsCount',
+              variables: { input: message }
             };
-            var updateNotificationsrequest = new HttpRequest({
+            const updateNotificationsrequest = new HttpRequest({
               method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                host: url.hostname
-              },
+              headers: { 'Content-Type': 'application/json', host: url.hostname },
               hostname: url.hostname,
               body: JSON.stringify(updateNotiNo),
               path: url.pathname
             });
-            var { headers, body, method } = await addHttpRequest(updateNotificationsrequest)
-            var updateNotifica = await initfetch(appsyncUrl, headers, body, method);
-            console.log(updateNotifica, "updateNotifica");
+            await signedFetch(updateNotificationsrequest);
           } else {
-            let message = {
+            const message = {
               id: uuidv4(),
               userID: g.id,
               unreadMessageNumber: 1
             };
-            console.log(message, "------------->message");
             const createNotiNo = {
-              query: createNotificationsCount, operationName: 'createNotificationsCount',
-              variables: {
-                input: message,
-              }
+              query: createNotificationsCount,
+              operationName: 'createNotificationsCount',
+              variables: { input: message }
             };
-            var createNotificationsrequest = new HttpRequest({
+            const createNotificationsrequest = new HttpRequest({
               method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                host: url.hostname
-              },
+              headers: { 'Content-Type': 'application/json', host: url.hostname },
               hostname: url.hostname,
               body: JSON.stringify(createNotiNo),
               path: url.pathname
             });
-            var { headers, body, method } = await addHttpRequest(createNotificationsrequest)
-            var createNotifica = await initfetch(appsyncUrl, headers, body, method);
-            console.log(createNotifica, "updateNotifica");
+            await signedFetch(createNotificationsrequest);
           }
-        }
-      }));
 
-      console.log(notificationsss)
+          return {
+            id: uuidv4(),
+            notificationsEventId: eventId,
+            notificationsUserId: g.id,
+            notificationsNotificationTypeId: notificationTypeId.id,
+            NotificationMessage: pushmessage,
+            IsEmailDelivered: false,
+            EmailNumberofAttempts: notificationTypeId.IsEmailRequired ? 0 : -1,
+            EmailStatusMessage: "",
+            IsPushDelivered: false,
+            PushNumberofAttempts: notificationTypeId.IsPushRequired ? 0 : -1,
+            PushStatusMessage: "",
+            IsSMSDelivered: false,
+            SmsNumberofAttempts: notificationTypeId.IsSmsRequired ? 0 : -1,
+            SMSStatusMessage: "",
+            SMSMessage: message,
+            EventName: name,
+            EventStartDate: startDate,
+            EventStartTime: startTime,
+            createdDate: new Date().toISOString().slice(0, 10)
+          };
+        }));
+
+      console.log(notifications)
       await Promise.all(
-        (notificationsss || []).map(async (g) => {
+        (notifications || []).map(async (g) => {
           var notification = {
             query: `mutation createNotifications(
             $input: CreateNotificationsInput!){
@@ -514,8 +481,7 @@ export const handler = async (event) => {
             body: JSON.stringify(notification),
             path: url.pathname
           });
-          var { headers, body, method } = await addHttpRequest(notificationRequest)
-          var notificationsssss = await initfetch(appsyncUrl, headers, body, method);
+          var notificationsssss = await signedFetch(notificationRequest);
           console.log(notificationsssss, "notificationsss");
           // if (response_status != false) {
           //   response_status = notificationsss.data == null ? false : true;
