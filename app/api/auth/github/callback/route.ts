@@ -65,12 +65,47 @@ export async function GET(req: NextRequest) {
       { upsert: true, new: true }
     );
 
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}`);
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <script>
+            window.opener.postMessage("github_auth_success", "${process.env.NEXT_PUBLIC_APP_URL}");
+            window.close();
+          </script>
+        </head>
+        <body>
+          <p>Authentication successful! You can now close this window.</p>
+        </body>
+      </html>
+    `;
+
+    return new NextResponse(html, {
+      headers: {
+        "Content-Type": "text/html",
+      },
+    });
+
   } catch (error) {
     console.error(error);
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 }
-    );
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <script>
+            window.close();
+          </script>
+        </head>
+        <body>
+          <p>An error occurred during authentication. Please try again.</p>
+        </body>
+      </html>
+    `;
+    return new NextResponse(html, {
+        headers: {
+            "Content-Type": "text/html",
+        },
+        status: 500,
+    });
   }
 }

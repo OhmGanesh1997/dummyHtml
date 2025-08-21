@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FaGithub } from "react-icons/fa";
 
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { DownloadModal } from "../download-modal";
 
 export function DownloadButton({ html }: { html: string }) {
   const [modalOpen, setModalOpen] = useState(false);
+  const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery({
     queryKey: ["github-status"],
@@ -19,8 +20,33 @@ export function DownloadButton({ html }: { html: string }) {
     },
   });
 
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) {
+        return;
+      }
+      if (event.data === "github_auth_success") {
+        queryClient.invalidateQueries({ queryKey: ["github-status"] });
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => {
+      window.removeEventListener("message", handleMessage);
+    };
+  }, [queryClient]);
+
   const handleConnect = () => {
-    window.location.href = "/api/auth/github";
+    const width = 600;
+    const height = 600;
+    const left = window.screen.width / 2 - width / 2;
+    const top = window.screen.height / 2 - height / 2;
+    const url = "/api/auth/github";
+    window.open(
+      url,
+      "GitHub Auth",
+      `width=${width},height=${height},top=${top},left=${left}`
+    );
   };
 
   if (isLoading) {
