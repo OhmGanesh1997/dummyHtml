@@ -177,7 +177,11 @@ export const AppEditor = ({ project }: { project?: Project | null }) => {
 
   return (
     <section className="h-[100dvh] bg-neutral-950 flex flex-col">
-      <Header tab={currentTab} onNewTab={setCurrentTab}>
+      <Header
+        tab={currentTab}
+        onNewTab={setCurrentTab}
+        project={project}
+      >
         <LoadProject
           onSuccess={(project: Project) => {
             router.push(`/projects/${project.space_id}`);

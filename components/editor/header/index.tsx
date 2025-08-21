@@ -1,11 +1,12 @@
 import { ReactNode } from "react";
-import { Eye, MessageCircleCode } from "lucide-react";
+import { Eye, MessageCircleCode, Download } from "lucide-react";
 
 import Logo from "@/assets/logo.svg";
 
 import { Button } from "@/components/ui/button";
 import classNames from "classnames";
 import Image from "next/image";
+import { Project } from "@/types";
 
 const TABS = [
   {
@@ -24,11 +25,20 @@ export function Header({
   tab,
   onNewTab,
   children,
+  project,
 }: {
   tab: string;
   onNewTab: (tab: string) => void;
   children?: ReactNode;
+  project?: Project | null;
 }) {
+  const handleDownload = () => {
+    if (!project) return;
+    const [namespace, repoId] = project.space_id.split("/");
+    const url = `/api/me/projects/${namespace}/${repoId}/download?private=${project.private}`;
+    window.open(url, "_blank");
+  };
+
   return (
     <header className="border-b bg-slate-200 border-slate-300 dark:bg-neutral-950 dark:border-neutral-800 px-3 lg:px-6 py-2 flex items-center max-lg:gap-3 justify-between lg:grid lg:grid-cols-3 z-20">
       <div className="flex items-center justify-start gap-3">
@@ -63,7 +73,20 @@ export function Header({
           </Button>
         ))}
       </div>
-      <div className="flex items-center justify-end gap-3">{children}</div>
+      <div className="flex items-center justify-end gap-3">
+        {project?._id && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDownload}
+            className="flex items-center gap-2"
+          >
+            <Download className="size-4" />
+            <span className="hidden md:inline">Download</span>
+          </Button>
+        )}
+        {children}
+      </div>
     </header>
   );
 }
