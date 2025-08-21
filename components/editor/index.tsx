@@ -26,6 +26,8 @@ import { Project } from "@/types";
 import { SaveButton } from "./save-button";
 import { LoadProject } from "../my-projects/load-project";
 import { isTheSameHtml } from "@/lib/compare-html-diff";
+import { ImportButton } from "./import-button";
+import { ImportGitHubButton } from "./import-github-button";
 
 export const AppEditor = ({ project }: { project?: Project | null }) => {
   const [htmlStorage, , removeHtmlStorage] = useLocalStorage("html_content");
@@ -178,11 +180,23 @@ export const AppEditor = ({ project }: { project?: Project | null }) => {
   return (
     <section className="h-[100dvh] bg-neutral-950 flex flex-col">
       <Header tab={currentTab} onNewTab={setCurrentTab}>
-        <LoadProject
-          onSuccess={(project: Project) => {
-            router.push(`/projects/${project.space_id}`);
-          }}
-        />
+        <div className="flex items-center gap-2">
+          <LoadProject
+            onSuccess={(project: Project) => {
+              router.push(`/projects/${project.space_id}`);
+            }}
+          />
+          <ImportButton
+            onSuccess={(newHtml) => {
+              setHtml(newHtml);
+            }}
+          />
+          <ImportGitHubButton
+            onSuccess={(newHtml) => {
+              setHtml(newHtml);
+            }}
+          />
+        </div>
         {project?._id ? (
           <SaveButton html={html} prompts={prompts} />
         ) : (
