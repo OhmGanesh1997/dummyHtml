@@ -1,13 +1,11 @@
-import { ReactNode } from "react";
 import { Eye, MessageCircleCode, Download } from "lucide-react";
+import JSZip from "jszip";
 
 import Logo from "@/assets/logo.svg";
 
 import { Button } from "@/components/ui/button";
 import classNames from "classnames";
 import Image from "next/image";
-import { Project } from "@/types";
-
 const TABS = [
   {
     value: "chat",
@@ -24,19 +22,37 @@ const TABS = [
 export function Header({
   tab,
   onNewTab,
-  children,
-  project,
+  html,
 }: {
   tab: string;
-  onNewTab: (tab: string) => void;
-  children?: ReactNode;
-  project?: Project | null;
+  onNewTab: (tab:string) => void;
+  html: string;
 }) {
   const handleDownload = () => {
-    if (!project) return;
-    const [namespace, repoId] = project.space_id.split("/");
-    const url = `/api/me/projects/${namespace}/${repoId}/download?private=${project.private}`;
-    window.open(url, "_blank");
+    const zip = new JSZip();
+    const styleRegex = /<style>(.*?)<\/style>/s;
+    const match = html.match(styleRegex);
+    let cssContent = "";
+    let modifiedHtml = html;
+
+    if (match && match[1]) {
+      cssContent = match[1].trim();
+      modifiedHtml = html.replace(styleRegex, '<link rel="stylesheet" href="style.css">');
+    }
+
+    zip.file("index.html", modifiedHtml);
+    if (cssContent) {
+      zip.file("style.css", cssContent);
+    }
+
+    zip.generateAsync({ type: "blob" }).then((content) => {
+      const url = URL.createObjectURL(content);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "deepsite.zip";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
   };
 
   return (
@@ -74,18 +90,15 @@ export function Header({
         ))}
       </div>
       <div className="flex items-center justify-end gap-3">
-        {project?._id && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleDownload}
-            className="flex items-center gap-2"
-          >
-            <Download className="size-4" />
-            <span className="hidden md:inline">Download</span>
-          </Button>
-        )}
-        {children}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleDownload}
+          className="flex items-center gap-2"
+        >
+          <Download className="size-4" />
+          <span className="hidden md:inline">Download</span>
+        </Button>
       </div>
     </header>
   );

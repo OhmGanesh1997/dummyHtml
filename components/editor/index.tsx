@@ -21,17 +21,15 @@ import { defaultHTML } from "@/lib/consts";
 import { Preview } from "@/components/editor/preview";
 import { useEditor } from "@/hooks/useEditor";
 import { AskAI } from "@/components/editor/ask-ai";
-import { DeployButton } from "./deploy-button";
 import { Project } from "@/types";
-import { SaveButton } from "./save-button";
-import { LoadProject } from "../my-projects/load-project";
 import { isTheSameHtml } from "@/lib/compare-html-diff";
 
 export const AppEditor = ({ project }: { project?: Project | null }) => {
   const [htmlStorage, , removeHtmlStorage] = useLocalStorage("html_content");
   const [, copyToClipboard] = useCopyToClipboard();
-  const { html, setHtml, htmlHistory, setHtmlHistory, prompts, setPrompts } =
-    useEditor(project?.html ?? (htmlStorage as string) ?? defaultHTML);
+  const { html, setHtml, htmlHistory, setHtmlHistory, setPrompts } = useEditor(
+    project?.html ?? (htmlStorage as string) ?? defaultHTML
+  );
   // get query params from URL
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -180,19 +178,8 @@ export const AppEditor = ({ project }: { project?: Project | null }) => {
       <Header
         tab={currentTab}
         onNewTab={setCurrentTab}
-        project={project}
-      >
-        <LoadProject
-          onSuccess={(project: Project) => {
-            router.push(`/projects/${project.space_id}`);
-          }}
-        />
-        {project?._id ? (
-          <SaveButton html={html} prompts={prompts} />
-        ) : (
-          <DeployButton html={html} prompts={prompts} />
-        )}
-      </Header>
+        html={html}
+      />
       <main className="bg-neutral-950 flex-1 max-lg:flex-col flex w-full max-lg:h-[calc(100%-82px)] relative">
         {currentTab === "chat" && (
           <>
