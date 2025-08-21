@@ -6,11 +6,6 @@ import User from "@/models/User";
 import dbConnect from "@/lib/mongodb";
 
 export async function GET(req: NextRequest) {
-  const user = await isAuthenticated();
-  if (user instanceof NextResponse || !user) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-  }
-
   const code = req.nextUrl.searchParams.get("code");
   if (!code) {
     return NextResponse.json(
@@ -54,6 +49,11 @@ export async function GET(req: NextRequest) {
     const accessToken = data.access_token;
     const octokit = new Octokit({ auth: accessToken });
     await octokit.rest.users.getAuthenticated();
+
+    const user = await isAuthenticated();
+    if (user instanceof NextResponse || !user) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
 
     await dbConnect();
     await User.findOneAndUpdate(
