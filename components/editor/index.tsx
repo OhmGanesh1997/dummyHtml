@@ -24,6 +24,7 @@ import { AskAI } from "@/components/editor/ask-ai";
 import { DeployButton } from "./deploy-button";
 import { Project } from "@/types";
 import { SaveButton } from "./save-button";
+import { DownloadButton } from "./download-button";
 import { LoadProject } from "../my-projects/load-project";
 import { isTheSameHtml } from "@/lib/compare-html-diff";
 
@@ -183,11 +184,14 @@ export const AppEditor = ({ project }: { project?: Project | null }) => {
             router.push(`/projects/${project.space_id}`);
           }}
         />
-        {project?._id ? (
-          <SaveButton html={html} prompts={prompts} />
-        ) : (
-          <DeployButton html={html} prompts={prompts} />
-        )}
+        <div className="flex items-center gap-2">
+          {project?._id ? (
+            <SaveButton html={html} prompts={prompts} />
+          ) : (
+            <DeployButton html={html} prompts={prompts} />
+          )}
+          <DownloadButton html={html} />
+        </div>
       </Header>
       <main className="bg-neutral-950 flex-1 max-lg:flex-col flex w-full max-lg:h-[calc(100%-82px)] relative">
         {currentTab === "chat" && (
