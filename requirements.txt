@@ -1,0 +1,4 @@
+gradio
+modelscope_studio
+dashscope
+openai
