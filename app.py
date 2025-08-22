@@ -90,7 +90,7 @@ class GradioEvents:
                     output:
                     gr.update(value=response),
                     download_content:
-                    gr.update(value=react_code or html_code),
+                    gr.update(value=react_code or html_code or ""),
                     state_tab:
                     gr.update(active_key="render"),
                     output_loading:
@@ -105,8 +105,8 @@ import "@tailwindcss/browser"
 
 export default Demo
 """,
-                            "./demo.tsx": react_code
-                        } if react_code else {"./index.html": html_code}),
+                            "./demo.tsx": react_code or ""
+                        } if react_code else {"./index.html": html_code or ""}),
                     state:
                     gr.update(value=state_value)
                 }
