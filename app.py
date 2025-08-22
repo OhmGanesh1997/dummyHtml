@@ -74,7 +74,8 @@ class GradioEvents:
         response = ""
         for chunk in generator:
             content = chunk.choices[0].delta.content
-            response += content
+            if content:
+                response += content
             if chunk.choices[0].finish_reason == 'stop':
                 state_value["history"] = messages + [{
                     'role': "assistant",
