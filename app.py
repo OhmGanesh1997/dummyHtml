@@ -1,4 +1,5 @@
 import re
+import traceback
 
 import gradio as gr
 import modelscope_studio.components.antd as antd
@@ -72,54 +73,80 @@ class GradioEvents:
                                                    messages=messages,
                                                    stream=True)
         response = ""
-        for chunk in generator:
-            content = chunk.choices[0].delta.content
-            if content:
-                response += content
-            if chunk.choices[0].finish_reason == 'stop':
-                state_value["history"] = messages + [{
-                    'role': "assistant",
-                    'content': response
-                }]
-                generated_files = get_generated_files(response)
-                react_code = generated_files.get(
-                    "index.tsx") or generated_files.get("index.jsx")
-                html_code = generated_files.get("index.html")
-                # Completed
-                # Update the sandbox content first
-                yield {
-                    output:
-                    gr.update(value=response),
-                    download_content:
-                    gr.update(value=react_code or html_code or ""),
-                    output_loading:
-                    gr.update(spinning=False),
-                    sandbox:
-                    gr.update(
-                        template="react" if react_code else "html",
-                        imports=react_imports if react_code else {},
-                        value={
-                            "./index.tsx": """import Demo from './demo.tsx'
+        try:
+            for chunk in generator:
+                content = ""
+                if chunk.choices and chunk.choices[0].delta:
+                    content = chunk.choices[0].delta.content
+
+                if content:
+                    response += content
+
+                finish_reason = None
+                if chunk.choices:
+                    finish_reason = chunk.choices[0].finish_reason
+
+                if finish_reason == 'stop':
+                    state_value["history"] = messages + [{
+                        'role': "assistant",
+                        'content': response
+                    }]
+                    generated_files = get_generated_files(response)
+                    react_code = generated_files.get(
+                        "index.tsx") or generated_files.get("index.jsx")
+                    html_code = generated_files.get("index.html")
+                    # Completed
+                    # Update the sandbox content first
+                    yield {
+                        'output':
+                        gr.update(value=response),
+                        'download_content':
+                        gr.update(value=react_code or html_code or ""),
+                        'output_loading':
+                        gr.update(spinning=False),
+                        'sandbox':
+                        gr.update(
+                            template="react" if react_code else "html",
+                            imports=react_imports if react_code else {},
+                            value={
+                                "./index.tsx": """import Demo from './demo.tsx'
 import "@tailwindcss/browser"
 
 export default Demo
 """,
-                            "./demo.tsx": react_code or ""
-                        } if react_code else {"./index.html": html_code or ""}),
-                    state:
-                    gr.update(value=state_value)
-                }
-                # Then switch the tab
-                yield {
-                    state_tab: gr.update(active_key="render"),
-                }
-
+                                "./demo.tsx": react_code or ""
+                            }
+                            if react_code else {"./index.html": html_code or ""}),
+                        'state':
+                        gr.update(value=state_value)
+                    }
+                    # Then switch the tab
+                    yield {
+                        'state_tab': gr.update(active_key="render"),
+                    }
+                    # IMPORTANT: Stop iterating once we hit the finish_reason
+                    break
+                else:
+                    # Generating
+                    yield {
+                        'output': gr.update(value=response),
+                        'output_loading': gr.update(spinning=False),
+                    }
             else:
-                # Generating
+                # This part executes if the loop finishes without a 'break'.
+                # This indicates the stream ended without a 'stop' signal.
                 yield {
-                    output: gr.update(value=response),
-                    output_loading: gr.update(spinning=False),
+                    'output': gr.update(value="Error: The code generation stream ended unexpectedly."),
+                    'output_loading': gr.update(spinning=False),
+                    'state_tab': gr.update(active_key="render"),
                 }
+        except Exception:
+            error_message = f"An unexpected error occurred during code generation:\n\n{traceback.format_exc()}"
+            yield {
+                'output': gr.update(value=error_message),
+                'output_loading': gr.update(spinning=False),
+                'state_tab': gr.update(active_key="render"),
+            }
 
     @staticmethod
     def select_example(example: dict):
