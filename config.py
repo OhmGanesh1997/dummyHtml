@@ -63,7 +63,23 @@ You can use these installed libraries if required.
 - **p5.js** : JavaScript library for creative coding and generative art. Usage: import p5 from "p5". Create interactive visuals, animations, sound-driven experiences, and artistic simulations.
 - **three, @react-three/fiber, @react-three/drei**: 3D graphics library with React renderer and helpers. Import as `import { Canvas } from "@react-three/fiber"` and `import { OrbitControls } from "@react-three/drei"`. Use for 3D scenes, visualizations, and immersive experiences.
 
-Remember to only return code for the App.jsx file and nothing else. The resulting application should be visually impressive, highly functional, and something users would be proud to showcase."""
+Remember to only return code for the App.jsx file and nothing else. The resulting application should be visually impressive, highly functional, and something users would be proud to showcase.
+
+[Unsplash Image Rules]
+- Do NOT use https://source.unsplash.com/ links.
+- Always use official Unsplash topic URLs:
+  https://unsplash.com/t/<topic>
+- Allowed topics (examples):
+    travel → https://unsplash.com/t/travel
+    nature → https://unsplash.com/t/nature
+    textures-patterns → https://unsplash.com/t/textures-patterns
+    architecture → https://unsplash.com/t/architecture
+    business-work → https://unsplash.com/t/business-work
+- If no exact topic match exists, fallback to the closest topic listed on Unsplash.
+- Always embed links as <a href="..."> for reference, not <img src="..."> since Unsplash topic pages are webpages, not direct images.
+
+
+"""
 
 EXAMPLES = [
     {
