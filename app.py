@@ -55,31 +55,64 @@ def create_zip_archive(code: str, filename: str, base_url: str = None):
                 assets.append(tag.get('src'))
 
         # Download and add assets to the zip
-        for asset_url in assets:
-            try:
-                # Handle relative URLs
-                if base_url:
-                    asset_url = urljoin(base_url, asset_url)
+        for i, asset_url in enumerate(assets):
+            if not asset_url:
+                continue
 
-                response = requests.get(asset_url, stream=True)
+            try:
+                parsed_url = urlparse(asset_url)
+
+                if parsed_url.scheme == 'data':
+                    # Handle data URIs
+                    header, encoded_data = asset_url.split(',', 1)
+                    # e.g., "data:image/png;base64"
+                    media_type = header.split(';')[0].split(':')[1]
+                    # e.g., "png"
+                    extension = media_type.split('/')[-1] if '/' in media_type else 'bin'
+
+                    # Create a unique filename
+                    asset_filename = f"asset_{i}.{extension}"
+
+                    if 'base64' in header:
+                        data = base64.b64decode(encoded_data)
+                    else:
+                        data = encoded_data.encode()
+
+                    zf.writestr(f"assets/{asset_filename}", data)
+                    continue
+
+                # Handle http/https/relative URLs
+                full_url = asset_url
+                if not parsed_url.scheme and base_url:
+                    full_url = urljoin(base_url, asset_url)
+
+                headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'}
+                response = requests.get(full_url, stream=True, headers=headers)
                 response.raise_for_status()
 
-                # Get filename from URL
-                parsed_url = urlparse(asset_url)
-                asset_filename = os.path.basename(parsed_url.path)
+                # Get filename from URL, with a fallback
+                asset_filename = os.path.basename(parsed_url.path) or f"asset_{i}"
+
+                # Add extension if missing
+                if '.' not in asset_filename:
+                    content_type = response.headers.get('Content-Type')
+                    if content_type:
+                        # e.g. 'image/jpeg' -> '.jpeg'
+                        ext = content_type.split('/')[-1]
+                        asset_filename = f"{asset_filename}.{ext}"
+
 
                 if asset_filename:
                     # Basic categorization
-                    if any(asset_filename.endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.svg']):
+                    if any(asset_filename.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.svg']):
                         zf.writestr(f"images/{asset_filename}", response.content)
-                    elif asset_filename.endswith('.js'):
+                    elif asset_filename.lower().endswith('.js'):
                         zf.writestr(f"js/{asset_filename}", response.content)
                     else:
                         zf.writestr(f"assets/{asset_filename}", response.content)
 
-            except requests.exceptions.RequestException as e:
-                print(f"Failed to download {asset_url}: {e}")
-                # Optionally, log this error or handle it
+            except Exception as e:
+                print(f"Failed to download or process {asset_url}: {e}")
                 pass
 
     in_memory_zip.seek(0)
@@ -231,12 +264,12 @@ class GradioEvents:
             }
             sandbox_template = "react"
             sandbox_imports = react_imports
-            download_payload = create_zip_archive(react_code, "index.tsx")
+            download_payload = create_zip_archive(react_code, "index.tsx", base_url="https://example.com")
         else:
             sandbox_value = {"./index.html": html_code or ""}
             sandbox_template = "html"
             sandbox_imports = {}
-            download_payload = create_zip_archive(html_code, "index.html")
+            download_payload = create_zip_archive(html_code, "index.html", base_url="https://example.com")
 
         yield {
             output: gr.update(value=response),
