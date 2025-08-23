@@ -41,36 +41,26 @@ react_imports = {
 
 
 def create_zip_archive(code: str, filename: str, base_url: str = None):
-    """Create a zip archive containing the code and its assets."""
+    """Create a zip archive containing the code and its assets, with relative paths."""
     in_memory_zip = io.BytesIO()
+    soup = BeautifulSoup(code, 'html.parser')
+
     with zipfile.ZipFile(in_memory_zip, 'w', zipfile.ZIP_DEFLATED) as zf:
-        # Add the main file
-        zf.writestr(filename, code)
-
-        # Parse the code to find assets
-        soup = BeautifulSoup(code, 'html.parser')
-        assets = []
-        for tag in soup.find_all(['img', 'script']):
-            if tag.get('src'):
-                assets.append(tag.get('src'))
-
-        # Download and add assets to the zip
-        for i, asset_url in enumerate(assets):
-            if not asset_url:
+        tags = soup.find_all(['img', 'script'])
+        for i, tag in enumerate(tags):
+            original_src = tag.get('src')
+            if not original_src:
                 continue
 
             try:
-                parsed_url = urlparse(asset_url)
+                new_src = None
+                parsed_url = urlparse(original_src)
 
                 if parsed_url.scheme == 'data':
                     # Handle data URIs
-                    header, encoded_data = asset_url.split(',', 1)
-                    # e.g., "data:image/png;base64"
+                    header, encoded_data = original_src.split(',', 1)
                     media_type = header.split(';')[0].split(':')[1]
-                    # e.g., "png"
                     extension = media_type.split('/')[-1] if '/' in media_type else 'bin'
-
-                    # Create a unique filename
                     asset_filename = f"asset_{i}.{extension}"
 
                     if 'base64' in header:
@@ -78,42 +68,45 @@ def create_zip_archive(code: str, filename: str, base_url: str = None):
                     else:
                         data = encoded_data.encode()
 
-                    zf.writestr(f"assets/{asset_filename}", data)
-                    continue
+                    new_src = f"assets/{asset_filename}"
+                    zf.writestr(new_src, data)
 
-                # Handle http/https/relative URLs
-                full_url = asset_url
-                if not parsed_url.scheme and base_url:
-                    full_url = urljoin(base_url, asset_url)
+                elif parsed_url.scheme in ['http', 'https'] or (not parsed_url.scheme and base_url):
+                    # Handle http, https, and relative URLs
+                    full_url = original_src if parsed_url.scheme else urljoin(base_url, original_src)
 
-                headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'}
-                response = requests.get(full_url, stream=True, headers=headers)
-                response.raise_for_status()
+                    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'}
+                    response = requests.get(full_url, stream=True, headers=headers)
+                    response.raise_for_status()
+                    content = response.content
 
-                # Get filename from URL, with a fallback
-                asset_filename = os.path.basename(parsed_url.path) or f"asset_{i}"
+                    asset_filename = os.path.basename(parsed_url.path) or f"asset_{i}"
+                    if '.' not in asset_filename:
+                        content_type = response.headers.get('Content-Type')
+                        if content_type and '/' in content_type:
+                            ext = content_type.split('/')[-1]
+                            asset_filename = f"{asset_filename}.{ext}"
 
-                # Add extension if missing
-                if '.' not in asset_filename:
-                    content_type = response.headers.get('Content-Type')
-                    if content_type:
-                        # e.g. 'image/jpeg' -> '.jpeg'
-                        ext = content_type.split('/')[-1]
-                        asset_filename = f"{asset_filename}.{ext}"
-
-
-                if asset_filename:
-                    # Basic categorization
                     if any(asset_filename.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.svg']):
-                        zf.writestr(f"images/{asset_filename}", response.content)
+                        new_src = f"images/{asset_filename}"
                     elif asset_filename.lower().endswith('.js'):
-                        zf.writestr(f"js/{asset_filename}", response.content)
+                        new_src = f"js/{asset_filename}"
                     else:
-                        zf.writestr(f"assets/{asset_filename}", response.content)
+                        new_src = f"assets/{asset_filename}"
+
+                    zf.writestr(new_src, content)
+
+                if new_src:
+                    tag['src'] = new_src
 
             except Exception as e:
-                print(f"Failed to download or process {asset_url}: {e}")
+                print(f"Failed to download or process {original_src}: {e}")
+                tag['src'] = '#' # Replace broken link
                 pass
+
+        # Add the modified main file
+        modified_code = str(soup)
+        zf.writestr(filename, modified_code)
 
     in_memory_zip.seek(0)
     return base64.b64encode(in_memory_zip.read()).decode('utf-8')
