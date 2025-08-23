@@ -86,13 +86,12 @@ class GradioEvents:
                     "index.tsx") or generated_files.get("index.jsx")
                 html_code = generated_files.get("index.html")
                 # Completed
+                # Update the sandbox content first
                 yield {
                     output:
                     gr.update(value=response),
                     download_content:
                     gr.update(value=react_code or html_code or ""),
-                    state_tab:
-                    gr.update(active_key="render"),
                     output_loading:
                     gr.update(spinning=False),
                     sandbox:
@@ -109,6 +108,10 @@ export default Demo
                         } if react_code else {"./index.html": html_code or ""}),
                     state:
                     gr.update(value=state_value)
+                }
+                # Then switch the tab
+                yield {
+                    state_tab: gr.update(active_key="render"),
                 }
 
             else:
