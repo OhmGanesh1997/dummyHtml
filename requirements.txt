@@ -2,3 +2,5 @@ gradio
 modelscope_studio
 dashscope
 openai
+requests
+beautifulsoup4

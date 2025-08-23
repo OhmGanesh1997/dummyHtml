@@ -1,6 +1,13 @@
+import base64
+import io
+import os
 import re
+import zipfile
+from urllib.parse import urljoin, urlparse
 
 import gradio as gr
+import requests
+from bs4 import BeautifulSoup
 import modelscope_studio.components.antd as antd
 import modelscope_studio.components.base as ms
 import modelscope_studio.components.pro as pro
@@ -31,6 +38,52 @@ react_imports = {
     "react-dom": "https://esm.sh/react-dom@^19.0.0",
     "react-dom/": "https://esm.sh/react-dom@^19.0.0/"
 }
+
+
+def create_zip_archive(code: str, filename: str, base_url: str = None):
+    """Create a zip archive containing the code and its assets."""
+    in_memory_zip = io.BytesIO()
+    with zipfile.ZipFile(in_memory_zip, 'w', zipfile.ZIP_DEFLATED) as zf:
+        # Add the main file
+        zf.writestr(filename, code)
+
+        # Parse the code to find assets
+        soup = BeautifulSoup(code, 'html.parser')
+        assets = []
+        for tag in soup.find_all(['img', 'script']):
+            if tag.get('src'):
+                assets.append(tag.get('src'))
+
+        # Download and add assets to the zip
+        for asset_url in assets:
+            try:
+                # Handle relative URLs
+                if base_url:
+                    asset_url = urljoin(base_url, asset_url)
+
+                response = requests.get(asset_url, stream=True)
+                response.raise_for_status()
+
+                # Get filename from URL
+                parsed_url = urlparse(asset_url)
+                asset_filename = os.path.basename(parsed_url.path)
+
+                if asset_filename:
+                    # Basic categorization
+                    if any(asset_filename.endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.svg']):
+                        zf.writestr(f"images/{asset_filename}", response.content)
+                    elif asset_filename.endswith('.js'):
+                        zf.writestr(f"js/{asset_filename}", response.content)
+                    else:
+                        zf.writestr(f"assets/{asset_filename}", response.content)
+
+            except requests.exceptions.RequestException as e:
+                print(f"Failed to download {asset_url}: {e}")
+                # Optionally, log this error or handle it
+                pass
+
+    in_memory_zip.seek(0)
+    return base64.b64encode(in_memory_zip.read()).decode('utf-8')
 
 
 class GradioEvents:
@@ -178,12 +231,12 @@ class GradioEvents:
             }
             sandbox_template = "react"
             sandbox_imports = react_imports
-            download_payload = react_code
+            download_payload = create_zip_archive(react_code, "index.tsx")
         else:
             sandbox_value = {"./index.html": html_code or ""}
             sandbox_template = "html"
             sandbox_imports = {}
-            download_payload = html_code
+            download_payload = create_zip_archive(html_code, "index.html")
 
         yield {
             output: gr.update(value=response),
@@ -476,12 +529,19 @@ with gr.Blocks(css=css) as demo:
         fn=None,
         inputs=[download_content],
         js="""(content) => {
-        const blob = new Blob([content], { type: 'text/plain' })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = 'output.txt'
-        a.click()
+        const byteCharacters = atob(content);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'application/zip' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'website.zip';
+        a.click();
+        URL.revokeObjectURL(url);
 }""",
     )
     view_code_btn.click(fn=GradioEvents.open_modal, outputs=[output_code_drawer])
