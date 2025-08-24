@@ -221,7 +221,6 @@ export async function POST(request: NextRequest) {
             let newChunk = chunk;
             if (!selectedModel?.isThinker) {
               if (provider !== "sambanova") {
-                await writer.write(encoder.encode(chunk));
                 completeResponse += chunk;
 
                 if (completeResponse.includes("</html>")) {
@@ -232,7 +231,6 @@ export async function POST(request: NextRequest) {
                   newChunk = newChunk.replace(/<\/html>[\s\S]*/, "</html>");
                 }
                 completeResponse += newChunk;
-                await writer.write(encoder.encode(newChunk));
                 if (newChunk.includes("</html>")) {
                   break;
                 }
@@ -241,7 +239,6 @@ export async function POST(request: NextRequest) {
               const lastThinkTagIndex =
                 completeResponse.lastIndexOf("</think>");
               completeResponse += newChunk;
-              await writer.write(encoder.encode(newChunk));
               if (lastThinkTagIndex !== -1) {
                 const afterLastThinkTag = completeResponse.slice(
                   lastThinkTagIndex + "</think>".length
@@ -257,8 +254,11 @@ export async function POST(request: NextRequest) {
         // Process Stability AI image placeholders after HTML generation is complete
         if (completeResponse.includes("STABILITY_AI_IMAGE:")) {
           const processedResponse = await processStabilityAIImages(completeResponse);
-          // Send the processed response as a final chunk
+          // Send only the processed response
           await writer.write(encoder.encode(processedResponse));
+        } else {
+          // If no images to process, send the original response
+          await writer.write(encoder.encode(completeResponse));
         }
       } catch (error: any) {
         if (error.message?.includes("exceeded your monthly included credits")) {
