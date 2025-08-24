@@ -131,6 +131,13 @@
   @apply fixed w-screen h-screen -z-1 top-0 left-0;
 }
 
+
+.monaco-editor,
+.monaco-editor .margin,
+.monaco-editor-background {
+  background-color: #16169f !important;
+}
+
 .monaco-editor .margin {
   @apply !bg-neutral-900;
 }

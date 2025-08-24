@@ -100,7 +100,7 @@ export function AskAI({
             previousPrompt,
             model,
             html,
-            selectedElementHtml,
+            selectedElementHtml:"",
           }),
           headers: {
             "Content-Type": "application/json",

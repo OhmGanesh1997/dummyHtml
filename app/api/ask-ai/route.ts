@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
             encoder.encode(
               JSON.stringify({
                 ok: false,
-                openProModal: true,
+                openProModal: false,
                 message: error.message,
               })
             )
@@ -400,7 +400,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json(
         {
           ok: false,
-          openProModal: true,
+          openProModal: false,
           message: error.message,
         },
         { status: 402 }
