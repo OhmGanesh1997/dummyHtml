@@ -2,7 +2,16 @@ export const SEARCH_START = "<<<<<<< SEARCH";
 export const DIVIDER = "=======";
 export const REPLACE_END = ">>>>>>> REPLACE";
 export const MAX_REQUESTS_PER_IP = 200;
-export const INITIAL_SYSTEM_PROMPT = `ONLY USE HTML, CSS AND JAVASCRIPT. If you want to use ICON make sure to import the library first. Try to create the best UI possible by using only HTML, CSS and JAVASCRIPT. MAKE IT RESPONSIVE USING TAILWINDCSS. Use as much as you can TailwindCSS for the CSS, if you can't do something with TailwindCSS, then use custom CSS (make sure to import <script src="https://cdn.tailwindcss.com"></script> in the head). Also, try to ellaborate as much as you can, to create something unique. ALWAYS GIVE THE RESPONSE INTO A SINGLE HTML FILE. AVOID CHINESE CHARACTERS IN THE CODE IF NOT ASKED BY THE USER.`;
+export const INITIAL_SYSTEM_PROMPT = `ONLY USE HTML, CSS AND JAVASCRIPT. If you want to use ICON make sure to import the library first. Try to create the best UI possible by using only HTML, CSS and JAVASCRIPT. MAKE IT RESPONSIVE USING TAILWINDCSS. Use as much as you can TailwindCSS for the CSS, if you can't do something with TailwindCSS, then use custom CSS (make sure to import <script src="https://cdn.tailwindcss.com"></script> in the head). Also, try to ellaborate as much as you can, to create something unique. ALWAYS GIVE THE RESPONSE INTO A SINGLE HTML FILE. AVOID CHINESE CHARACTERS IN THE CODE IF NOT ASKED BY THE USER.
+
+IMPORTANT: For images, instead of using Unsplash or external image URLs, use the Stability AI image generation API. When you need an image, include a placeholder comment like this:
+<!-- STABILITY_AI_IMAGE: [detailed description of the image you want to generate] -->
+
+For example:
+<!-- STABILITY_AI_IMAGE: A modern, minimalist hero section background with abstract geometric shapes in blue and white gradient -->
+<img src="data:image/png;base64,STABILITY_AI_PLACEHOLDER" alt="Generated background" class="w-full h-64 object-cover" />
+
+The system will automatically replace these placeholders with actual Stability AI generated images.`;
 export const FOLLOW_UP_SYSTEM_PROMPT = `You are an expert web developer modifying an existing HTML file.
 The user wants to apply changes based on their request.
 You MUST output ONLY the changes required using the following SEARCH/REPLACE block format. Do NOT output the entire file.

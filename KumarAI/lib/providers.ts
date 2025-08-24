@@ -34,13 +34,18 @@ export const PROVIDERS = {
     max_tokens: 16_384,
     id: "groq",
   },
+  stability: {
+    name: "Stability AI",
+    max_tokens: 16_000,
+    id: "stability",
+  },
 };
 
 export const MODELS = [
   {
     value: "deepseek-ai/DeepSeek-V3-0324",
     label: "DeepSeek V3 O324",
-    providers: ["fireworks-ai", "nebius", "sambanova", "novita", "hyperbolic"],
+    providers: ["fireworks-ai", "nebius", "sambanova", "novita", "hyperbolic", "stability"],
     autoProvider: "novita",
   },
   {
@@ -53,6 +58,7 @@ export const MODELS = [
       "nebius",
       "together",
       "sambanova",
+      "stability",
     ],
     autoProvider: "novita",
     isThinker: true,
@@ -60,14 +66,14 @@ export const MODELS = [
   {
     value: "Qwen/Qwen3-Coder-480B-A35B-Instruct",
     label: "Qwen3 Coder 480B A35B Instruct",
-    providers: ["novita", "hyperbolic"],
+    providers: ["novita", "hyperbolic", "stability"],
     autoProvider: "novita",
     isNew: true,
   },
   {
     value: "moonshotai/Kimi-K2-Instruct",
     label: "Kimi K2 Instruct",
-    providers: ["together", "novita", "groq"],
+    providers: ["together", "novita", "groq", "stability"],
     autoProvider: "groq",
   },
 ];

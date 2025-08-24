@@ -17,6 +17,83 @@ import MY_TOKEN_KEY from "@/lib/get-cookie-name";
 
 const ipAddresses = new Map();
 
+// Function to process Stability AI image placeholders
+async function processStabilityAIImages(html: string): Promise<string> {
+  const stabilityImageRegex = /<!-- STABILITY_AI_IMAGE: ([^>]+) -->/g;
+  let processedHtml = html;
+  let match;
+  let placeholderIndex = 0;
+
+  // First, collect all image descriptions and generate images
+  const imageDescriptions: string[] = [];
+  const matches: RegExpExecArray[] = [];
+  
+  // Reset regex to start from beginning
+  stabilityImageRegex.lastIndex = 0;
+  
+  while ((match = stabilityImageRegex.exec(html)) !== null) {
+    imageDescriptions.push(match[1].trim());
+    matches.push(match);
+  }
+
+  // Generate all images in parallel
+  const imagePromises = imageDescriptions.map(async (description, index) => {
+    try {
+      // Add some variation to the prompt to ensure different images
+      const variedDescription = `${description} ${index + 1}, unique variation`;
+      
+      const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/generate-image`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: variedDescription,
+          width: 1024,
+          height: 1024,
+          steps: 30,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.ok && data.base64) {
+          return { index, base64: data.base64 };
+        }
+      }
+    } catch (error) {
+      console.error(`Error generating Stability AI image ${index + 1}:`, error);
+    }
+    
+    // Return fallback for failed generations
+    return { 
+      index, 
+      base64: 'PHN2ZyB3aWR0aD0iMTAyNCIgaGVpZ2h0PSIxMDI0IiB2aWV3Qm94PSIwIDAgMTAyNCAxMDI0IiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxyZWN0IHdpZHRoPSIxMDI0IiBoZWlnaHQ9IjEwMjQiIGZpbGw9IiNGNUY1RjUiLz48dGV4dCB4PSI1MTIiIHk9IjUxMiIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjE2IiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+SW1hZ2UgR2VuZXJhdGlvbiBGYWlsZWQ8L3RleHQ+PC9zdmc+' 
+    };
+  });
+
+  // Wait for all images to be generated
+  const generatedImages = await Promise.all(imagePromises);
+
+  // Now replace each placeholder with its corresponding generated image
+  let currentIndex = 0;
+  stabilityImageRegex.lastIndex = 0;
+  
+  while ((match = stabilityImageRegex.exec(processedHtml)) !== null) {
+    const generatedImage = generatedImages.find(img => img.index === currentIndex);
+    
+    if (generatedImage) {
+      // Replace only the next occurrence of the placeholder
+      const placeholderRegex = /data:image\/png;base64,STABILITY_AI_PLACEHOLDER/;
+      processedHtml = processedHtml.replace(placeholderRegex, `data:image/png;base64,${generatedImage.base64}`);
+    }
+    
+    currentIndex++;
+  }
+
+  return processedHtml;
+}
+
 export async function POST(request: NextRequest) {
   const authHeaders = await headers();
   const userToken = request.cookies.get(MY_TOKEN_KEY())?.value;
@@ -175,6 +252,13 @@ export async function POST(request: NextRequest) {
               }
             }
           }
+        }
+
+        // Process Stability AI image placeholders after HTML generation is complete
+        if (completeResponse.includes("STABILITY_AI_IMAGE:")) {
+          const processedResponse = await processStabilityAIImages(completeResponse);
+          // Send the processed response as a final chunk
+          await writer.write(encoder.encode(processedResponse));
         }
       } catch (error: any) {
         if (error.message?.includes("exceeded your monthly included credits")) {
@@ -382,6 +466,11 @@ export async function PUT(request: NextRequest) {
         }
 
         position = replaceEndIndex + REPLACE_END.length;
+      }
+
+      // Process Stability AI image placeholders in the updated HTML
+      if (newHtml.includes("STABILITY_AI_IMAGE:")) {
+        newHtml = await processStabilityAIImages(newHtml);
       }
 
       return NextResponse.json({
